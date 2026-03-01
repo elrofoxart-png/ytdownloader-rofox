@@ -1,24 +1,45 @@
-# YouTube Downloader - Vercel Edition
+# YouTube Downloader 
 
-Get YouTube video info and direct stream links via Piped API.
+Clone de ytb.pco2.fr en Flask avec Docker.
 
-## Deploy to Vercel
+## 🚀 Quick Start (Docker)
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/import?repository-url=https://github.com/elrofoxart-png/ytdownloader-rofox)
-
-## Features
-- No server-side downloads
-- Direct stream URLs
-- Uses Piped instances (public YouTube proxy)
-- Dark mode UI
-
-## Local Dev
 ```bash
-cd api
-pip install flask requests
-python index.py
+# 1. Clone
+git clone https://github.com/elrofoxart-png/ytdownloader-rofox.git
+cd ytdownloader-rofox
+
+# 2. Lance avec Docker Compose
+docker-compose up --build
+
+# 3. Accède à l'app
+open http://localhost:5000
 ```
 
-## API Endpoints
-- `POST /api/info` - Get video info
-- `GET /api/health` - Health check
+## 📋 Features
+
+- 📹 Téléchargement MP4 (vidéo)
+- 🎵 Téléchargement MP3 (audio)  
+- 🌙 Interface Dark Mode
+- 🐳 100% Dockerisé
+
+## 🏗️ Build manuel
+
+```bash
+# Sans Docker Compose
+docker build -t ytdownloader .
+docker run -p 5000:5000 -v $(pwd)/downloads:/downloads ytdownloader
+```
+
+## ⚠️ Notes
+
+- Vercel = limité (Piped API souvent bloqué)
+- **Docker = 100% fonctionnel avec vrai yt-dlp**
+- Les downloads vont dans `./downloads/`
+
+## 🔧 Tech Stack
+
+- Flask + Python 3.11
+- yt-dlp (téléchargement)
+- FFmpeg (conversion audio)
+- Docker + Compose
