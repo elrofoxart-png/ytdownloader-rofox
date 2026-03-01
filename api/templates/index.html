@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Downloader - Vercel Edition</title>
+    <meta name="description" content="Get YouTube video info via Piped API">
+    <style>
+        :root {
+            --bg: #0a0a0a;
+            --bg-card: #161616;
+            --bg-input: #1c1c1c;
+            --border: #2a2a2a;
+            --text: #fff;
+            --text-muted: #888;
+            --accent: #ff3e3e;
+            --accent-hover: #ff5555;
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            width: 100%;
+        }
+        
+        header { text-align: center; margin-bottom: 40px; }
+        h1 { font-size: 2rem; margin-bottom: 8px; }
+        .subtitle { color: var(--text-muted); }
+        
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+        }
+        
+        .input-group {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        
+        input[type="url"] {
+            flex: 1;
+            padding: 14px 16px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--bg-input);
+            color: var(--text);
+            font-size: 1rem;
+        }
+        
+        input:focus { outline: none; border-color: var(--accent); }
+        
+        button {
+            padding: 14px 24px;
+            border: none;
+            border-radius: 8px;
+            background: var(--accent);
+            color: white;
+            font-size: 1rem;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+        
+        button:hover { background: var(--accent-hover); }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        
+        .video-info { display: none; }
+        .video-info.show { display: block; animation: fadeIn 0.3s ease; }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .thumbnail {
+            width: 100%;
+            max-width: 480px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+        
+        .video-title { font-size: 1.3rem; margin-bottom: 8px; line-height: 1.4; }
+        .video-meta { color: var(--text-muted); margin-bottom: 24px; }
+        
+        .streams-grid {
+            display: grid;
+            gap: 12px;
+            margin-top: 20px;
+        }
+        
+        .stream-item {
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .stream-info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        
+        .stream-quality { font-weight: 600; }
+        .stream-format { color: var(--text-muted); font-size: 0.9rem; }
+        
+        .download-btn {
+            padding: 10px 20px;
+            font-size: 0.9rem;
+            text-decoration: none;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .badge-video { background: #ff3e3e; }
+        .badge-audio { background: #3e8eff; }
+        
+        .notice {
+            background: var(--bg-input);
+            border-left: 3px solid var(--accent);
+            padding: 16px;
+            border-radius: 0 8px 8px 0;
+            margin-top: 20px;
+        }
+        .notice h3 { margin-bottom: 8px; font-size: 0.95rem; }
+        .notice p { color: var(--text-muted); font-size: 0.85rem; }
+        
+        .error {
+            color: #ff5555;
+            background: rgba(255, 85, 85, 0.1);
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 12px;
+            display: none;
+        }
+        .error.show { display: block; }
+        
+        .loader {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        .loader.show { display: block; }
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 12px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        footer {
+            text-align: center;
+            color: var(--text-muted);
+            padding: 20px;
+            margin-top: auto;
+            font-size: 0.85rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>YouTube Downloader</h1>
+            <p class="subtitle">Powered by Piped API — Info & direct streams</p>
+        </header>
+        
+        <div class="card">
+            <div class="input-group">
+                <input type="url" id="urlInput" placeholder="Paste YouTube URL..." required>
+                <button onclick="fetchInfo()" id="fetchBtn">Get Info</button>
+            </div>
+            
+            <div class="loader" id="loader">
+                <div class="spinner"></div>
+                <p>Fetching video info...</p>
+            </div>
+            
+            <div class="error" id="error"></div>
+            
+            <div class="video-info" id="videoInfo">
+                <img class="thumbnail" id="thumbnail" src="" alt="">
+                <h2 class="video-title" id="videoTitle"></h2>
+                <p class="video-meta" id="videoMeta"></p>
+                
+                <div class="streams-grid" id="streamsList"></div>
+                
+                <div class="notice">
+                    <h3>ℹ️ Direct Stream Info</h3>
+                    <p>This version uses Piped API to get direct stream URLs (no server-side download). 
+                    Click any button to open the stream directly in your browser or use "Save As" to download.</p>
+                </div>
+            </div>
+        </div>
+        
+        <footer>
+            <p>Hosted on <b>Vercel</b> • Uses Piped instances • No server downloads</p>
+        </footer>
+    </div>
+    
+    <script>
+        async function fetchInfo() {
+            const url = document.getElementById('urlInput').value;
+            if (!url) return;
+            
+            const btn = document.getElementById('fetchBtn');
+            const loader = document.getElementById('loader');
+            const error = document.getElementById('error');
+            const videoInfo = document.getElementById('videoInfo');
+            
+            btn.disabled = true;
+            loader.classList.add('show');
+            error.classList.remove('show');
+            videoInfo.classList.remove('show');
+            
+            try {
+                // Use relative URL for Vercel
+                const response = await fetch('/api/info', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url })
+                });
+                
+                const data = await response.json();
+                
+                if (data.error) {
+                    error.textContent = data.error;
+                    error.classList.add('show');
+                    return;
+                }
+                
+                // Display info
+                document.getElementById('thumbnail').src = data.thumbnail;
+                document.getElementById('videoTitle').textContent = data.title;
+                document.getElementById('videoMeta').innerHTML = 
+                    `${data.uploader} • ${data.duration} • ${Number(data.view_count).toLocaleString()} views`;
+                
+                // Build streams list
+                const streamsList = document.getElementById('streamsList');
+                streamsList.innerHTML = '';
+                
+                data.formats.forEach(format => {
+                    if (!format.url) return;
+                    
+                    const item = document.createElement('div');
+                    item.className = 'stream-item';
+                    
+                    const badgeClass = format.has_video ? 'badge-video' : 'badge-audio';
+                    const badgeText = format.has_video ? 'Video' : 'Audio';
+                    
+                    item.innerHTML = `
+                        <div class="stream-info">
+                            <span class="stream-quality">${format.quality}</span>
+                            <span class="stream-format">
+                                <span class="badge ${badgeClass}">${badgeText}</span>
+                                ${format.ext.toUpperCase()}
+                            </span>
+                        </div>
+                        <a href="${format.url}" target="_blank" class="download-btn button" 
+                           style="display:inline-block;">
+                           ↓ Open Stream
+                        </a>
+                    `;
+                    streamsList.appendChild(item);
+                });
+                
+                videoInfo.classList.add('show');
+                
+            } catch (err) {
+                error.textContent = 'Failed to fetch video info. Try again.';
+                error.classList.add('show');
+            } finally {
+                btn.disabled = false;
+                loader.classList.remove('show');
+            }
+        }
+        
+        // Enter key support
+        document.getElementById('urlInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') fetchInfo();
+        });
+    </script>
+</body>
+</html>
