@@ -88,7 +88,7 @@ def get_info():
 @app.route('/api/download', methods=['POST'])
 def download():
     url = request.json.get('url', '')
-    download_type = request.json.get('type', 'video')  # 'video' or 'audio'
+    download_type = request.json.get('type', 'video')  # 'video', 'mp3', 'wav', or 'flac'
     
     if not url:
         return jsonify({'error': 'URL required'}), 400
@@ -98,41 +98,99 @@ def download():
         return jsonify({'error': 'Invalid YouTube URL'}), 400
     
     try:
-        output_path = DOWNLOAD_FOLDER / f"%(title)s_%(id)s.%(ext)s"
+        # Get video info first for filename
+        info = get_video_info(url)
+        title = info.get('title', 'unknown') if info else 'unknown'
+        safe_title = re.sub(r'[^\w\s-]', '', title).strip()[:50]
         
-        if download_type == 'audio':
-            # Download audio only
+        if download_type == 'video':
+            # Download video MP4
+            output_template = str(DOWNLOAD_FOLDER / f"{safe_title}_{video_id}.%(ext)s")
+            cmd = [
+                'yt-dlp',
+                '-f', 'best[ext=mp4]/best',
+                '-o', output_template,
+                '--no-warnings',
+                url
+            ]
+            ext = 'mp4'
+            
+        elif download_type == 'mp3':
+            # Download audio MP3
+            output_template = str(DOWNLOAD_FOLDER / f"{safe_title}_{video_id}.%(ext)s")
             cmd = [
                 'yt-dlp',
                 '-f', 'bestaudio/best',
                 '--extract-audio',
                 '--audio-format', 'mp3',
                 '--audio-quality', '0',
-                '-o', str(output_path),
+                '-o', output_template,
                 '--no-warnings',
                 url
             ]
-        else:
-            # Download video
+            ext = 'mp3'
+            
+        elif download_type == 'wav':
+            # Download audio WAV
+            output_template = str(DOWNLOAD_FOLDER / f"{safe_title}_{video_id}.%(ext)s")
             cmd = [
                 'yt-dlp',
-                '-f', 'best[ext=mp4]/best',
-                '-o', str(output_path),
+                '-f', 'bestaudio/best',
+                '--extract-audio',
+                '--audio-format', 'wav',
+                '--audio-quality', '0',
+                '-o', output_template,
                 '--no-warnings',
                 url
             ]
+            ext = 'wav'
+            
+        elif download_type == 'flac':
+            # Download audio FLAC
+            output_template = str(DOWNLOAD_FOLDER / f"{safe_title}_{video_id}.%(ext)s")
+            cmd = [
+                'yt-dlp',
+                '-f', 'bestaudio/best',
+                '--extract-audio',
+                '--audio-format', 'flac',
+                '--audio-quality', '0',
+                '-o', output_template,
+                '--no-warnings',
+                url
+            ]
+            ext = 'flac'
+        else:
+            return jsonify({'error': 'Invalid download type'}), 400
         
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
         
         if result.returncode == 0:
             # Find downloaded file
+            downloaded_file = None
             for file in DOWNLOAD_FOLDER.iterdir():
                 if video_id in file.name:
-                    return jsonify({
-                        'success': True,
-                        'filename': file.name,
-                        'path': str(file)
-                    })
+                    downloaded_file = file
+                    break
+            
+            if downloaded_file:
+                return jsonify({
+                    'success': True,
+                    'filename': downloaded_file.name,
+                    'path': str(downloaded_file),
+                    'type': download_type,
+                    'ext': ext
+                })
+            else:
+                # Look for any file with similar name
+                for file in DOWNLOAD_FOLDER.iterdir():
+                    if safe_title.replace(' ', '_') in file.name or video_id in file.name:
+                        return jsonify({
+                            'success': True,
+                            'filename': file.name,
+                            'path': str(file),
+                            'type': download_type,
+                            'ext': ext
+                        })
         
         return jsonify({'error': 'Download failed', 'details': result.stderr}), 500
         
