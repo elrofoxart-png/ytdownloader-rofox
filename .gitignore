@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.venv/
+downloads/
+*.log
+nohup.out
+start_tunnel.sh
+push_to_github.sh
+.gitcredentials
